@@ -24,6 +24,7 @@ public class MycatSelectParser extends MySqlSelectParser
     protected SQLSelectItem parseSelectItem()
     {
         parseTop();
+        //修正bug
         return super.exprParser.parseSelectItem();
     }
 
