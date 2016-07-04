@@ -172,14 +172,22 @@ public class MultiNodeQueryHandler extends MultiNodeHandler implements
 					+ executeResponse + " from " + conn);
 		}
 		if (executeResponse) {
-			if (clearIfSessionClosed(session)) {
-				return;
-			} else if (canClose(conn, false)) {
-				return;
-			}
+
 			ServerConnection source = session.getSource();
 			OkPacket ok = new OkPacket();
 			ok.read(data);
+            //存储过程
+            boolean isCanClose2Client =(!rrs.isCallStatement()) ||(rrs.isCallStatement() &&!rrs.getProcedure().isResultSimpleValue());;
+             if(!isCallProcedure)
+             {
+                 if (clearIfSessionClosed(session))
+                 {
+                     return;
+                 } else if (canClose(conn, false))
+                 {
+                     return;
+                 }
+             }
 			lock.lock();
 			try {
 				// 判断是否是全局表，如果是，执行行数不做累加，以最后一次执行的为准。
@@ -195,10 +203,11 @@ public class MultiNodeQueryHandler extends MultiNodeHandler implements
 			} finally {
 				lock.unlock();
 			}
+
 			// 对于存储过程，其比较特殊，查询结果返回EndRow报文以后，还会再返回一个OK报文，才算结束
 			boolean isEndPacket = isCallProcedure ? decrementOkCountBy(1)
 					: decrementCountBy(1);
-			if (isEndPacket) {
+			if (isEndPacket&&isCanClose2Client) {
 				if (this.autocommit) {// clear all connections
 					session.releaseConnections(false);
 				}
@@ -241,12 +250,17 @@ public class MultiNodeQueryHandler extends MultiNodeHandler implements
 			LOGGER.debug("on row end reseponse " + conn);
 		}
 		if (errorRepsponsed.get()) {
-			conn.close(this.error);
+			// the connection has been closed or set to "txInterrupt" properly
+			//in tryErrorFinished() method! If we close it here, it can
+			// lead to tx error such as blocking rollback tx for ever.
+			// @author Uncle-pan
+			// @since 2016-03-25
+			// conn.close(this.error);
 			return;
 		}
 
 		final ServerConnection source = session.getSource();
-		if (!isCallProcedure) {
+        if (!rrs.isCallStatement()){
 			if (clearIfSessionClosed(session)) {
 				return;
 			} else if (canClose(conn, false)) {
@@ -255,7 +269,7 @@ public class MultiNodeQueryHandler extends MultiNodeHandler implements
 		}
 
 		if (decrementCountBy(1)) {
-			if (!this.isCallProcedure) {
+            if (!rrs.isCallStatement()||(rrs.isCallStatement()&&rrs.getProcedure().isResultSimpleValue())) {
 				if (this.autocommit) {// clear all connections
 					session.releaseConnections(false);
 				}
@@ -469,7 +483,12 @@ public class MultiNodeQueryHandler extends MultiNodeHandler implements
 	@Override
 	public void rowResponse(final byte[] row, final BackendConnection conn) {
 		if (errorRepsponsed.get()) {
-			conn.close(error);
+			// the connection has been closed or set to "txInterrupt" properly
+			//in tryErrorFinished() method! If we close it here, it can
+			// lead to tx error such as blocking rollback tx for ever.
+			// @author Uncle-pan
+			// @since 2016-03-25
+			//conn.close(error);
 			return;
 		}
 		lock.lock();
@@ -478,12 +497,12 @@ public class MultiNodeQueryHandler extends MultiNodeHandler implements
 					.getAttachment();
 			String dataNode = rNode.getName();
 			if (dataMergeSvr != null) {
-				if (dataMergeSvr.onNewRecord(dataNode, row)) {
-					isClosedByDiscard.set(true);
-					// canClose(conn, false);
-					// conn.discardClose("discard data");
-					// LOGGER.warn(conn);
-				}
+				// even through discarding the all rest data, we can't
+				//close the connection for tx control such as rollback or commit.
+				// So the "isClosedByDiscard" variable is unnecessary.
+				// @author Uncle-pan
+				// @since 2016-03-25
+				dataMergeSvr.onNewRecord(dataNode, row);
 			} else {
 				// cache primaryKey-> dataNode
 				if (primaryKeyIndex != -1) {
