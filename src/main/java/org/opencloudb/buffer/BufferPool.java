@@ -27,15 +27,12 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
 
 /**
  * @author mycat
- * 
- * Allocate from heap if direct buffer OOM occurs
- * @author Uncle-pan
- * @since 2016-03-30
  */
 public final class BufferPool {
 	// this value not changed ,isLocalCacheThread use it
@@ -45,10 +42,8 @@ public final class BufferPool {
 	private final int chunkSize;
 	private final ConcurrentLinkedQueue<ByteBuffer> items = new ConcurrentLinkedQueue<ByteBuffer>();
 	private long sharedOptsCount;
-	// The statistics variable newCreated: no need to be accurate for performance consideration!
-	// @author Uncle-pan
-	// @since 2016-04-05
-    private volatile int newCreated;
+	//private volatile int newCreated;
+        private AtomicInteger newCreated = new AtomicInteger(0);
 	private final long threadLocalCount;
 	private final long capactiy;
 	private long totalBytes = 0;
@@ -87,7 +82,7 @@ public final class BufferPool {
 	}
 
 	public long capacity() {
-		return capactiy + newCreated;
+		return capactiy + newCreated.get();
 	}
 
 	public ByteBuffer allocate() {
@@ -101,16 +96,9 @@ public final class BufferPool {
 		}
 		node = items.poll();
 		if (node == null) {
-			// Allocate from heap if direct buffer OOM occurs
-			// @author Uncle-pan
-			// @since 2016-03-30
-			try{
-				node = this.createDirectBuffer(chunkSize);
-				++newCreated;
-			}catch(final OutOfMemoryError oom){
-				LOGGER.warn("Direct buffer OOM occurs: so allocate from heap", oom);
-				node = this.createTempBuffer(chunkSize);
-			}
+			//newCreated++;
+			newCreated.incrementAndGet();
+			node = this.createDirectBuffer(chunkSize);
 		}
 		return node;
 	}

@@ -45,7 +45,8 @@ abstract class MultiNodeHandler implements ResponseHandler, Terminatable {
 	protected volatile String error;
 	protected byte packetId;
 	protected final AtomicBoolean errorRepsponsed = new AtomicBoolean(false);
-	
+	protected final AtomicBoolean isClosedByDiscard = new AtomicBoolean(false);
+
 	public MultiNodeHandler(NonBlockingSession session) {
 		if (session == null) {
 			throw new IllegalArgumentException("session is null!");
@@ -113,15 +114,7 @@ abstract class MultiNodeHandler implements ResponseHandler, Terminatable {
 	}
 
 	public void connectionError(Throwable e, BackendConnection conn) {
-		final boolean canClose = decrementCountBy(1);
-		// 需要把Throwable e的错误信息保存下来（setFail()）， 否则会导致响应 
-		//null信息，结果mysql命令行等客户端查询结果是"Query OK"！！
-		// @author Uncle-pan
-		// @since 2016-03-26
-		if(canClose){
-			setFail("backend connect: "+e);
-		}
-		LOGGER.warn("backend connect", e);
+		boolean canClose = decrementCountBy(1);
 		this.tryErrorFinished(canClose);
 	}
 
@@ -213,6 +206,10 @@ abstract class MultiNodeHandler implements ResponseHandler, Terminatable {
 	}
 
 	public void connectionClose(BackendConnection conn, String reason) {
+		if(isClosedByDiscard.get()){
+			LOGGER.info(reason);
+			return;
+		}
 		this.setFail("closed connection:" + reason + " con:" + conn);
 		boolean finished = false;
 		lock.lock();

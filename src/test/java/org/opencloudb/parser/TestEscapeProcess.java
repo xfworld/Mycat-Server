@@ -22,7 +22,6 @@ import static org.junit.Assert.assertNull;
 import java.sql.SQLSyntaxErrorException;
 
 import org.junit.Test;
-import org.opencloudb.MycatServer;
 import org.opencloudb.interceptor.impl.DefaultSqlInterceptor;
 
 public class TestEscapeProcess {
@@ -42,7 +41,6 @@ public class TestEscapeProcess {
 	
 	@Test
 	public void testEscapeProcess() {
-		MycatServer.getInstance().getConfig().getSystem().setDefaultSqlParser("fdbparser");
 		String sqlProcessed = DefaultSqlInterceptor.processEscape(sql);
 		assertEquals(sqlProcessed, sqlret);
 		String sqlProcessed1 = DefaultSqlInterceptor

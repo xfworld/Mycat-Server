@@ -20,12 +20,11 @@ public class MycatSelectParser extends MySqlSelectParser
         super(sql);
     }
 
-   // @Override
+    @Override
     protected SQLSelectItem parseSelectItem()
     {
         parseTop();
-        
-        return super.exprParser.parseSelectItem();
+        return super.parseSelectItem();
     }
 
 

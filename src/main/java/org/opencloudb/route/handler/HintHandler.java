@@ -1,7 +1,6 @@
 package org.opencloudb.route.handler;
 
 import java.sql.SQLNonTransientException;
-import java.util.Map;
 
 import org.opencloudb.cache.LayerCachePool;
 import org.opencloudb.config.model.SchemaConfig;
@@ -16,7 +15,7 @@ import org.opencloudb.server.ServerConnection;
 public interface HintHandler {
 
 	public RouteResultset route(SystemConfig sysConfig, SchemaConfig schema,
-                                int sqlType, String realSQL, String charset, ServerConnection sc,
-                                LayerCachePool cachePool, String hintSQLValue, int hintSqlType, Map hintMap)
+			int sqlType, String realSQL, String charset, ServerConnection sc,
+			LayerCachePool cachePool, String hintSQLValue)
 			throws SQLNonTransientException;
 }
